@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import styled from "styled-components";
 import DonutLargeIcon from "@material-ui/icons/DonutLarge";
 import ChatIcon from "@material-ui/icons/Chat";
@@ -7,19 +7,56 @@ import { Avatar, IconButton } from "@material-ui/core";
 import { SearchOutlined } from "@material-ui/icons";
 import EditIcon from "@material-ui/icons/Edit";
 import SidebarChat from "./SidebarChat";
-import { useState } from "react";
 
-function Sidebar() {
+function Sidebar({ user, setConversation, fetchUser, setSearchInput }) {
   const [isEdit, setIsEdit] = useState(false);
+  const [file, setFile] = useState("");
+  const [username, setUsername] = useState("");
+  const [about, setAbout] = useState("");
 
   const editHandler = () => {
     setIsEdit(!isEdit);
   };
 
+  const handleProfilePicSubmit = async (e) => {
+    e.preventDefault();
+
+    let formData = new FormData();
+
+    if (username !== "") {
+      formData.append("username", username);
+    }
+
+    if (about !== "") {
+      formData.append("about", about);
+    }
+
+    if (file !== "") {
+      formData.append("profilePic", file);
+    }
+
+    try {
+      const response = await fetch(`http://localhost:3001/users/me`, {
+        method: "PUT",
+        body: formData,
+        credentials: "include",
+      });
+      if (response.ok) {
+        fetchUser();
+      } else {
+        console.log("Error while uploading pic");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+
+    setFile("");
+  };
+
   return (
     <SideBar>
       <div className="sidebar-header">
-        <Avatar src="https://avatars.githubusercontent.com/u/69857293?v=4" />
+        <Avatar src={user.profilePic} />
         <div className="sidebar-headerRight">
           <IconButton style={{ paddingLeft: "0", paddingRight: "0" }}>
             <DonutLargeIcon />
@@ -38,24 +75,38 @@ function Sidebar() {
 
       {isEdit ? (
         <EditOne>
-          <label id="editPic" className="img-box">
-            <img
-              className="edit-img"
-              src="https://avatars.githubusercontent.com/u/69857293?v=4"
-              alt=""
-            />
-            <input type="file" id="editPic" style={{ display: "none" }} />
-          </label>
+          <form onSubmit={handleProfilePicSubmit}>
+            <label id="editPic" className="img-box">
+              <img
+                className="edit-img"
+                src={user.profilePic ? user.profilePic : ""}
+                alt="profile-pic"
+              />
+              <input
+                type="file"
+                id="file"
+                onChange={(e) => setFile(e.target.files[0])}
+                style={{ display: "none" }}
+              />
+            </label>
+
+            <button type="submit" hidden={file === "" ? true : false}>
+              Edit picture
+            </button>
+          </form>
         </EditOne>
       ) : (
         <div className="sidebar-search">
           <div className="sidebar-searchContainer">
             <SearchOutlined />
-            <input
-              className="sidebar-search-input"
-              placeholder="Search or start new chat"
-              type="text"
-            />
+            <form>
+              <input
+                className="sidebar-search-input"
+                placeholder="Search or start new chat"
+                type="text"
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+            </form>
           </div>
         </div>
       )}
@@ -64,8 +115,16 @@ function Sidebar() {
         <EditTwo>
           <div className="box-1">
             <div className="box-info">
-              <p>Your name</p>
-              <input type="text" value={"Huseyin Can"} />
+              <p>Your username</p>
+              <form onSubmit={handleProfilePicSubmit}>
+                <input
+                  type="text"
+                  placeholder={user.username}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+                <button type="submit" hidden></button>
+              </form>
             </div>
             <div className="box-svg">
               <EditIcon style={{ color: "grey" }} />
@@ -74,13 +133,21 @@ function Sidebar() {
           <div className="box-2">
             <p style={{ fontSize: "14px", color: "#666666" }}>
               This is not your username or pin. This name will be visible to
-              your WhatsApp contacs.
+              your WhatsApp contacts.
             </p>
           </div>
           <div className="box-3">
             <div className="box-info">
               <p>About</p>
-              <input type="text" value={"Busy"} />
+              <form onSubmit={handleProfilePicSubmit}>
+                <input
+                  type="text"
+                  value={about}
+                  placeholder={user.about}
+                  onChange={(e) => setAbout(e.target.value)}
+                />
+                <button type="submit" hidden></button>
+              </form>
             </div>
             <div className="box-svg">
               <EditIcon style={{ color: "grey" }} />
@@ -89,13 +156,18 @@ function Sidebar() {
         </EditTwo>
       ) : (
         <div className="sidebar-chats">
-          <SidebarChat />
-          <SidebarChat />
-          <SidebarChat />
-          <SidebarChat />
-          <SidebarChat />
-          <SidebarChat />
-          <SidebarChat />
+          {user?.userRooms
+            ?.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
+            .map((room) => (
+              <div
+                onClick={() => {
+                  setConversation(room);
+                }}
+                key={room._id}
+              >
+                <SidebarChat key={room._id} room={room} user={user} />
+              </div>
+            ))}
         </div>
       )}
     </SideBar>

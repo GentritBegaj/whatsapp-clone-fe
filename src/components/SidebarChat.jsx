@@ -1,16 +1,27 @@
 import React from "react";
 import { Avatar } from "@material-ui/core";
 import styled from "styled-components";
+import { format } from "timeago.js";
 
-const SidebarChat = () => {
+const SidebarChat = ({ room, user }) => {
+  const messages = room.messages;
+
   return (
     <SidebaRchat>
-      <Avatar src="https://avatars.githubusercontent.com/u/77416371?v=4" />
+      <Avatar
+        src={room.members.find((member) => member._id !== user._id).profilePic}
+      />
       <div className="sidebarChat-info">
-        <h2>Carlo Lombardi</h2>
-        <p>Hey buddy</p>
+        {room.members
+          .filter((member) => member._id !== user._id)
+          .map((user) => (
+            <h2 key={user._id}>{user.username}</h2>
+          ))}
+        <p>{messages[messages.length - 1].text}</p>
       </div>
-      <span style={{ fontSize: "12px", color: "grey" }}>14:28</span>
+      <span style={{ fontSize: "12px", color: "grey" }}>
+        {format(room.updatedAt)}
+      </span>
     </SidebaRchat>
   );
 };

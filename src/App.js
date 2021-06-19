@@ -2,13 +2,14 @@ import "./App.css";
 import ChatMain from "./pages/ChatMain";
 import Login from "./pages/Login";
 import RegisterPage from "./pages/RegisterPage";
-import { BrowserRouter as Router, Switch, Route } from "react-router-dom";
+import { Switch, Route } from "react-router-dom";
 
 function App() {
   return (
-    <Router>
+    <>
+      {/* // <Router> */}
       <Switch>
-        <Route path="/" exact>
+        <Route path="/me" exact>
           <div className="app">
             <ChatMain />
           </div>
@@ -20,7 +21,8 @@ function App() {
           <Login />
         </Route>
       </Switch>
-    </Router>
+      {/* </Router> */}
+    </>
   );
 }
 

@@ -1,22 +1,145 @@
 import { Avatar, IconButton } from "@material-ui/core";
 import { AttachFile, SearchOutlined, MoreVert } from "@material-ui/icons";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import InsertEmoticonIcon from "@material-ui/icons/InsertEmoticon";
 import MicIcon from "@material-ui/icons/Mic";
 import styled from "styled-components";
 import SendIcon from "@material-ui/icons/Send";
 import { useState } from "react";
+import axios from "axios";
+import moment from "moment";
+import { socket } from "../pages/ChatMain";
+// import { io } from "socket.io-client";
 
-function Chat() {
-  const { isWriting, setİsWriting } = useState(false);
+// export const socket = io(`ws://localhost:3001`, {
+//   withCredentials: true,
+//   transports: ["websocket"],
+// });
+
+function Chat({ conversation, user, activeSockets }) {
+  const { isWriting, setIsWriting } = useState(false);
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState([]);
+  const scrollRef = useRef();
+  const [userLastSeenDB, setUserLastSeenDB] = useState("");
+
+  const activeIds = activeSockets.map((u) => u.userId);
+
+  const getReceiver = () =>
+    conversation.members.filter((member) => member._id !== user._id);
+
+  const handleMessageChange = (e) => {
+    setMessage(e.target.value);
+  };
+
+  const handleMessageSubmit = async (e) => {
+    e.preventDefault();
+    if (message === "") return null;
+    setMessages((prevMessages) => [
+      ...prevMessages,
+      {
+        senderId: user._id,
+        receiverId: getReceiver(),
+        text: message,
+        updatedAt: new Date(),
+      },
+    ]);
+
+    try {
+      const data = await axios.post(
+        `http://localhost:3001/rooms/${conversation._id}`,
+        {
+          text: message,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+      socket.emit("sendMessage", {
+        senderId: user._id,
+        receiverId: [...conversation.members],
+        text: message,
+        updatedAt: new Date(),
+      });
+      // console.log(data);
+      setMessage("");
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  useEffect(() => {
+    socket.on("newMessage", (newMessage) => {
+      // console.log(newMessage);
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+    });
+  }, []);
+
+  useEffect(() => {
+    socket.on("lastSeen", ({ lastSeenTime, userLastSeenId }) => {
+      if (
+        user._id !== userLastSeenId &&
+        userLastSeenId === getReceiver()[0]._id
+      ) {
+        setUserLastSeenDB(lastSeenTime);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    setUserLastSeenDB(user.lastSeen);
+  }, []);
+
+  useEffect(() => {
+    setMessages(conversation.messages);
+  }, [conversation]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   return (
     <ChatC>
       <div className="chat-header">
-        <Avatar src="https://avatars.githubusercontent.com/u/77416371?v=4" />
+        <Avatar
+          src={
+            conversation.members.find((member) => member._id !== user._id)
+              .profilePic
+          }
+        />
 
         <div className="chat-headerInfo">
-          <p>Carlo Lombardi</p>
+          {conversation.members.length < 3
+            ? conversation.members
+                .filter((member) => member._id !== user._id)
+                .map((u, i) => (
+                  <>
+                    <p key={i}>{u.username}</p>
+                    <small>
+                      {activeIds.includes(u._id)
+                        ? "Online"
+                        : new Date(userLastSeenDB).getDay() ===
+                          new Date().getDay()
+                        ? `Last seen today at ${moment(userLastSeenDB).format(
+                            "HH:mm"
+                          )}`
+                        : `Last seen at ${moment(userLastSeenDB).format(
+                            "HH:mm on DD/MM/yyyy"
+                          )}`}
+                    </small>
+                  </>
+                ))
+            : conversation.members
+                .filter((member) => member._id !== user._id)
+                .map((u, i) => (
+                  <>
+                    <p key={i}>
+                      {i !== conversation.members.length - 2
+                        ? `${u.username}, `
+                        : `${u.username}`}
+                    </p>
+                  </>
+                ))}
         </div>
 
         <div className="chat-headerRight">
@@ -31,40 +154,38 @@ function Chat() {
       </div>
 
       <div className="chatBody">
-        <p className="chat-message">
-          This is a message Lorem ipsum dolor sit amet, consectetur adipisicing
-          elit. Tempora eaque aliquam provident. Ex officiis molestiae alias
-          ratione, voluptates, facere hic esse beatae velit cum inventore? Est
-          dolorem voluptatum porro quaerat!
-        </p>
-        <p className="chat-receiver chat-message">
-          Lorem ipsum dolor, sit amet consectetur adipisicing elit. Optio
-          corporis debitis itaque dolor sapiente. Libero nam fugit corporis
-          nobis, aliquam nulla maxime velit id, quisquam animi, quo soluta amet
-          sapiente?
-        </p>
-        <p className="chat-message">
-          Lorem ipsum dolor sit amet consectetur adipisicing elit.
-          Exercitationem dolores iusto reprehenderit cumque ad nam, est, minima
-          autem adipisci commodi hic eligendi illum, tempora quis tempore nulla
-          qui omnis molestiae.
-        </p>
-        <p className="chat-message chat-receiver">
-          Lorem ipsum dolor, sit amet consectetur ?
-        </p>
-        <p className="chat-message">
-          Lorem ipsum dolor sit amet consectetur adipisicing elit.
-          Exercitationem dolores iusto reprehenderit cumque ad nam, est, minima
-          autem adipisci commodi hic eligendi illum, tempora quis tempore nulla
-          qui omnis molestiae.
-        </p>
+        {messages.map((message, i) => (
+          <div key={message._id} ref={scrollRef}>
+            <p
+              className={
+                message.senderId === user._id
+                  ? "chat-message chat-receiver"
+                  : "chat-message"
+              }
+            >
+              {message.text}
+              <div style={{ marginBottom: "5px" }}>
+                <span key={i} className="time-text">
+                  {moment(message.updatedAt).format("HH.mm")}
+                </span>
+              </div>
+            </p>
+          </div>
+        ))}
       </div>
 
       <div className="chat-footer">
         <InsertEmoticonIcon />
         <AttachFile className="attach" />
-        <form>
-          <input placeholder="Type a message" type="text" />
+
+        <form onSubmit={handleMessageSubmit}>
+          <input
+            placeholder="Type a message"
+            style={{ outlineWidth: 0 }}
+            type="text"
+            value={message}
+            onChange={handleMessageChange}
+          />
           <button type="submit">Send a message</button>
         </form>
         {isWriting ? <MicIcon /> : <SendIcon />}
@@ -107,6 +228,7 @@ const ChatC = styled.div`
     padding: 40px;
     overflow: scroll;
     overflow-x: hidden;
+    position: relative;
   }
 
   .chat-message {
@@ -114,10 +236,19 @@ const ChatC = styled.div`
     font-size: 14px;
     padding: 8px;
     width: fit-content;
+    min-width: 30px;
+    min-height: 15px;
     border-radius: 10px;
     background-color: #fff;
     margin-bottom: 30px;
     max-width: 50%;
+  }
+  .time-text {
+    font-size: xx-small;
+    position: absolute;
+    display: block;
+    right: 8%;
+    bottom: 0%;
   }
 
   .chat-receiver {

@@ -1,7 +1,5 @@
-import axios from "axios";
-import React from "react";
-import { useState } from "react";
-import { useHistory } from "react-router";
+import React, { useState } from "react";
+import { useHistory } from "react-router-dom";
 
 const RegisterPage = () => {
   const [email, setEmail] = useState("");
@@ -19,7 +17,21 @@ const RegisterPage = () => {
   const submitHandler = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("/", user);
+      const response = await fetch("http://localhost:3001/users/register", {
+        method: "POST",
+        body: JSON.stringify(user),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      });
+      if (response.ok) {
+        console.log(response);
+        const data = await response.json();
+        console.log(data);
+      } else {
+        console.log("Error while registering");
+      }
       history.push("/login");
     } catch (error) {
       console.log(error);
